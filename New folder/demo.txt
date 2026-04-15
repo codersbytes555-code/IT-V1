@@ -1,0 +1,149 @@
+I have consolidated all the steps, technical decisions, and component usage guides into a single, comprehensive document. Use this as your reference for implementing the Lead Management Frontend within your company.
+
+# Lead Management Frontend: Implementation Handbook
+
+This document provides a complete, step-by-step guide to building a modular, production-ready React frontend using Vite, Tailwind CSS v4, and Shadcn UI.
+
+---
+
+## 1. Project Initialization & Dependencies
+
+### Step 1: Create the Project
+Initialize a React project with TypeScript using Vite.
+```bash
+npx create-vite@latest client --template react-ts
+cd client
+```
+
+### Step 2: Install Core Dependencies
+Install the necessary libraries for styling, API handling, and forms.
+
+| Category | Command |
+| :--- | :--- |
+| **Styling** | `npm install -D tailwindcss @tailwindcss/vite postcss autoprefixer` |
+| **Icons & Utils** | `npm install lucide-react clsx tailwind-merge` |
+| **API & Routing** | `npm install axios react-router-dom` |
+| **Forms & Validation** | `npm install zod react-hook-form @hookform/resolvers` |
+
+---
+
+## 2. Environment Configuration
+
+### Step 3: Configure Vite & Path Aliases
+Update `vite.config.ts` to support Tailwind v4 and clean `@/` imports.
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import path from "path"
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "./src") },
+  },
+})
+```
+
+### Step 4: Configure TypeScript
+Add path aliases to your `tsconfig.json` compiler options:
+```json
+"compilerOptions": {
+  "baseUrl": ".",
+  "paths": { "@/*": ["./src/*"] }
+}
+```
+
+---
+
+## 3. Shadcn UI Workflow
+
+### Step 5: Initialize Shadcn CLI
+Run the initialization command to set up the theme and utility functions.
+```bash
+npx shadcn@latest init -d
+```
+
+### Step 6: Add Required Components
+Download the source code for the specific UI elements needed:
+```bash
+npx shadcn@latest add table card input label dialog badge skeleton sidebar select
+```
+> [!NOTE]  
+> These components are added directly to `src/components/ui/`. You own the source code and can modify it if needed.
+
+---
+
+## 4. Application Architecture
+
+To keep the project scalable, organize your `src/` folder as follows:
+
+| Folder | Purpose |
+| :--- | :--- |
+| `services/` | Centralized API call functions (e.g., `techService.ts`). |
+| `lib/` | Shared utilities like the `axiosInstance.ts`. |
+| `hooks/` | Custom hooks (e.g., `useTechnologies.ts`) to separate logic from UI. |
+| `pages/` | Main feature views (e.g., `Technologies.tsx`). |
+| `types/` | Zod schemas and TypeScript interfaces for data safety. |
+| `components/` | Shared UI and Layout components (Sidebar, Navbar). |
+
+---
+
+## 5. Component Usage & Integration
+
+### The "Add → Import → Compose" Flow
+After adding a component via CLI, follow this pattern to use it on a page:
+
+1. **Import**: Use the path alias.
+   ```tsx
+   import { Button } from "@/components/ui/button";
+   ```
+
+2. **Compose**: Nest components to build complex layouts.
+   ```tsx
+   <Card>
+     <CardHeader>
+       <CardTitle>Technologies</CardTitle>
+     </CardHeader>
+     <CardContent>
+       <Table>
+         <TableBody>
+            {/* Logic goes here */}
+         </TableBody>
+       </Table>
+     </CardContent>
+   </Card>
+   ```
+
+3. **Connect to Data**: Use your custom hooks to feed API data into the components.
+   - Use **Skeletons** for loading states.
+   - Use **Badges** to display categories.
+   - Use **Dialogs** for forms like "Add New Technology."
+
+---
+
+## 6. Logic & Validation
+
+### API Connection
+Create a central **Axios Instance** so you can easily manage headers and base URLs.
+```typescript
+const axiosInstance = axios.create({ baseURL: "http://localhost:3000/api" });
+```
+
+### Form Validation (Zod)
+Define a **Zod Schema** for every form. This ensures the frontend and backend strictly agree on the data structure before a request is even sent.
+```typescript
+export const CreateTechSchema = z.object({
+  name: z.string().min(2, "Name is too short"),
+  category: z.enum(["FRONTEND", "BACKEND", ...]),
+});
+```
+
+---
+
+## 7. Final Summary
+1. **Initialize** with Vite and set up path aliases.
+2. **Install** Shadcn components and logic libraries (Axios, Zod).
+3. **Organize** logic into Services and Hooks to keep Pages "lean."
+4. **Compose** pages using Shadcn atomic components.
+5. **Validate** all user input using Zod before submission.
