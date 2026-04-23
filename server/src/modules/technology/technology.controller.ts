@@ -2,10 +2,7 @@ import { NextFunction, Response, Request } from "express";
 import asyncHandler from "../../common/utils/asyncHandler";
 import { tech_schema } from "./technology.validator";
 import * as techService from "../technology/technology.service";
-import { success } from "zod";
 import { ValidatedRequest } from "express-zod-safe";
-import { da } from "zod/v4/locales";
-import { count } from "node:console";
 
 // API - CREATE TECHNOLOGY
 
