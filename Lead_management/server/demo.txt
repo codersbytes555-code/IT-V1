@@ -1,0 +1,406 @@
+import { z } from "zod";
+import { Status } from "@prisma/client";
+
+// 🔹 Shared base (only structure, no business logic)
+const baseSchema = z.object({
+  developer_name: z
+    .string()
+    .min(2)
+    .max(50)
+    .transform((v) => v.trim().replace(/\s+/g, " ")),
+
+  email: z.string().email(),
+
+  number: z.string().regex(/^[6-9]\d{9}$/),
+
+  position: z.string().min(2).max(50),
+
+  beforeJoinExpYear: z.number().int().min(0).max(50).optional(),
+
+  beforeJoinExpMonth: z.number().int().min(0).max(11).optional(),
+
+  status: z.nativeEnum(Status).optional(),
+
+  tech_ids: z.array(z.string().cuid()).min(1),
+
+  relivingDate: z.coerce.date().optional(),
+
+  salary: z.coerce.number().min(0).optional(),
+});
+
+// 🔹 CREATE
+export const developerSchema = baseSchema;
+
+// 🔹 UPDATE (whitelisted fields only)
+export const updateDeveloperSchema = z.object({
+  developer_name: z.string().min(2).optional(),
+  position: z.string().optional(),
+  beforeJoinExpYear: z.number().int().min(0).optional(),
+  beforeJoinExpMonth: z.number().int().min(0).max(11).optional(),
+  status: z.nativeEnum(Status).optional(),
+  relivingDate: z.coerce.date().optional(),
+  salary: z.coerce.number().min(0).optional(),
+  tech_ids: z.array(z.string().cuid()).optional(),
+});
+
+// 🔹 GET
+export const getDevelopersSchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(50).default(10),
+  search: z.string().optional(),
+});
+
+// 🔹 DELETE
+export const deleteDeveloperSchema = z.object({
+  id: z.string().cuid(),
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import { z } from "zod";
+import {
+  developerSchema,
+  updateDeveloperSchema,
+  getDevelopersSchema,
+  deleteDeveloperSchema,
+} from "./developer.validator";
+
+export type DeveloperInput = z.infer<typeof developerSchema>;
+
+export type UpdateDeveloperInput = z.infer<
+  typeof updateDeveloperSchema
+>;
+
+export type GetDevelopersQuery = z.infer<
+  typeof getDevelopersSchema
+>;
+
+export type DeleteDeveloperParams = z.infer<
+  typeof deleteDeveloperSchema
+>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import ApiError from "../../common/errors/ApiError";
+
+export const validateDeveloperBusinessRules = (data: any) => {
+  // Experience rule
+  if (
+    data.beforeJoinExpYear !== undefined &&
+    data.beforeJoinExpMonth === undefined
+  ) {
+    throw new ApiError(400, "Month required when year provided");
+  }
+
+  // Date validation
+  if (
+    data.relivingDate &&
+    data.joining_date &&
+    data.relivingDate <= data.joining_date
+  ) {
+    throw new ApiError(400, "Relieving date must be after joining date");
+  }
+
+  // Status rules
+  if (data.status === "Active" && data.relivingDate) {
+    throw new ApiError(400, "Active dev cannot have relieving date");
+  }
+
+  if (data.status === "InActive" && !data.relivingDate) {
+    throw new ApiError(400, "Relieving date required for inactive status");
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+import prisma from "../../db/prisma";
+import ApiError from "../../common/errors/ApiError";
+import {
+  DeveloperInput,
+  UpdateDeveloperInput,
+} from "./developer.interface";
+import { validateDeveloperBusinessRules } from "./developer.utils";
+
+// 🔹 CREATE
+export const createDeveloper = async (data: DeveloperInput) => {
+  const [existingDev, techs] = await Promise.all([
+    prisma.developerTeam.findUnique({
+      where: { email: data.email },
+    }),
+    prisma.technology.findMany({
+      where: { id: { in: data.tech_ids }, isDeleted: false },
+      select: { id: true },
+    }),
+  ]);
+
+  // Email uniqueness
+  if (existingDev && !existingDev.isDeleted) {
+    throw new ApiError(400, "Developer already exists");
+  }
+
+  // Rehire case
+  if (existingDev && existingDev.isDeleted) {
+    const merged = { ...existingDev, ...data };
+    validateDeveloperBusinessRules(merged);
+
+    return prisma.developerTeam.update({
+      where: { id: existingDev.id },
+      data: {
+        ...data,
+        isDeleted: false,
+        deletedAt: null,
+      },
+    });
+  }
+
+  // Tech validation
+  if (techs.length !== data.tech_ids.length) {
+    throw new ApiError(400, "Invalid tech IDs");
+  }
+
+  if (new Set(data.tech_ids).size !== data.tech_ids.length) {
+    throw new ApiError(400, "Duplicate tech IDs");
+  }
+
+  validateDeveloperBusinessRules(data);
+
+  return prisma.developerTeam.create({
+    data: {
+      ...data,
+      tech_skills: {
+        create: data.tech_ids.map((id) => ({
+          technology: { connect: { id } },
+        })),
+      },
+    },
+  });
+};
+
+---
+
+export const getDevelopers = async (
+  limit: number,
+  page: number,
+  search?: string
+) => {
+  const skip = (page - 1) * limit;
+
+  const where: any = { isDeleted: false };
+
+  if (search) {
+    where.OR = [
+      { developer_name: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const [data, totalCount] = await Promise.all([
+    prisma.developerTeam.findMany({
+      take: limit,
+      skip,
+      where,
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.developerTeam.count({ where }),
+  ]);
+
+  return { data, totalCount };
+};
+
+---
+
+export const deleteDeveloper = async (id: string) => {
+  const exist = await prisma.developerTeam.findUnique({ where: { id } });
+
+  if (!exist) throw new ApiError(404, "Not found");
+
+  if (exist.isDeleted) return exist;
+
+  return prisma.developerTeam.update({
+    where: { id },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      status: "InActive",
+      relivingDate: new Date(),
+    },
+  });
+};
+
+---
+
+export const updateDeveloper = async (
+  id: string,
+  data: UpdateDeveloperInput
+) => {
+  if (Object.keys(data).length === 0) {
+    throw new ApiError(400, "No fields to update");
+  }
+
+  const exist = await prisma.developerTeam.findUnique({
+    where: { id },
+  });
+
+  if (!exist || exist.isDeleted) {
+    throw new ApiError(404, "Developer not found");
+  }
+
+  // Validate tech IDs first
+  if (data.tech_ids) {
+    const techs = await prisma.technology.findMany({
+      where: { id: { in: data.tech_ids }, isDeleted: false },
+      select: { id: true },
+    });
+
+    if (techs.length !== data.tech_ids.length) {
+      throw new ApiError(400, "Invalid tech IDs");
+    }
+
+    if (new Set(data.tech_ids).size !== data.tech_ids.length) {
+      throw new ApiError(400, "Duplicate tech IDs");
+    }
+  }
+
+  const merged = { ...exist, ...data };
+
+  // Central validation
+  validateDeveloperBusinessRules(merged);
+
+  // Relation update
+  if (data.tech_ids) {
+    await prisma.dev_skills.deleteMany({
+      where: { developerId: id },
+    });
+
+    await prisma.dev_skills.createMany({
+      data: data.tech_ids.map((techId) => ({
+        developerId: id,
+        technologyId: techId,
+      })),
+    });
+  }
+
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([_, v]) => v !== undefined)
+  );
+
+  return prisma.developerTeam.update({
+    where: { id },
+    data: cleanData,
+  });
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+import { Request, Response } from "express";
+import asyncHandler from "../../common/utils/asyncHandler";
+import * as devService from "./developer.service";
+import {
+  developerSchema,
+  updateDeveloperSchema,
+  getDevelopersSchema,
+  deleteDeveloperSchema,
+} from "./developer.validator";
+import { ApiResponse } from "../../common/utils/ApiResponse";
+
+// CREATE
+export const createDeveloper = asyncHandler(async (req, res) => {
+  const body = developerSchema.parse(req.body);
+
+  const result = await devService.createDeveloper(body);
+
+  res.status(201).json(new ApiResponse(201, result, "Created"));
+});
+
+// GET
+export const getDevelopers = asyncHandler(async (req, res) => {
+  const query = getDevelopersSchema.parse(req.query);
+
+  const result = await devService.getDevelopers(
+    query.limit,
+    query.page,
+    query.search
+  );
+
+  res.status(200).json(
+    new ApiResponse(200, result.data, "Fetched", {
+      totalCount: result.totalCount,
+      currentPage: query.page,
+      totalPages: Math.ceil(result.totalCount / query.limit),
+    })
+  );
+});
+
+// DELETE
+export const deleteDeveloper = asyncHandler(async (req, res) => {
+  const { id } = deleteDeveloperSchema.parse(req.params);
+
+  const result = await devService.deleteDeveloper(id);
+
+  res.status(200).json(new ApiResponse(200, result, "Deleted"));
+});
+
+// UPDATE
+export const updateDeveloper = asyncHandler(async (req, res) => {
+  const { id } = deleteDeveloperSchema.parse(req.params);
+
+  const body = updateDeveloperSchema.parse(req.body);
+
+  const result = await devService.updateDeveloper(id, body);
+
+  res.status(200).json(new ApiResponse(200, result, "Updated"));
+});
