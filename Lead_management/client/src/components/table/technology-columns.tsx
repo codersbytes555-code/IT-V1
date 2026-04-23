@@ -1,0 +1,70 @@
+import type { ColumnDef } from "@tanstack/react-table";
+import { MoreHorizontal, Eye, Plus, Code, ArrowUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+export type CreateTechInput = {
+  id: string;
+  name: string;
+  category: string;
+};
+
+export const technologyColumns: ColumnDef<CreateTechInput>[] = [
+  {
+    accessorKey: "name",
+    // header: "Technology",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Technology Name
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+  },
+  {
+    accessorKey: "category",
+    header: "Category",
+  },
+  {
+    header: "Actions",
+    id: "actions",
+    cell: ({ row }) => {
+      const tech = row.original;
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => navigator.clipboard.writeText(tech.id)}
+            >
+              <Eye className="mr-2 h-4 w-4" /> View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Code className="mr-2 h-4 w-4" /> Edit Stack
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Plus className="mr-2 h-4 w-4" /> Add Related
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+  },
+];
