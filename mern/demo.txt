@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DOM CRUD</title>
+</head>
+<body>
+
+  <h2>Simple DOM CRUD</h2>
+
+  <input id="input" placeholder="Enter item" />
+  <button onclick="addOrUpdate()">Add / Update</button>
+
+  <ul id="list"></ul>
+
+  <script>
+    let items = [];
+    let editId = null;
+
+    function render() {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+
+      items.forEach(item => {
+        const li = document.createElement("li");
+        li.innerText = item.name;
+
+        // Edit button
+        const editBtn = document.createElement("button");
+        editBtn.innerText = "Edit";
+        editBtn.onclick = () => {
+          document.getElementById("input").value = item.name;
+          editId = item.id;
+        };
+
+        // Delete button
+        const deleteBtn = document.createElement("button");
+        deleteBtn.innerText = "Delete";
+        deleteBtn.onclick = () => {
+          items = items.filter(i => i.id !== item.id);
+          render();
+        };
+
+        li.appendChild(editBtn);
+        li.appendChild(deleteBtn);
+        list.appendChild(li);
+      });
+    }
+
+    function addOrUpdate() {
+      const input = document.getElementById("input");
+      const value = input.value.trim();
+
+      if (!value) return;
+
+      if (editId !== null) {
+        // UPDATE
+        items = items.map(item =>
+          item.id === editId
+            ? { ...item, name: value }
+            : item
+        );
+        editId = null;
+      } else {
+        // CREATE
+        items.push({
+          id: Date.now(),
+          name: value
+        });
+      }
+
+      input.value = "";
+      render();
+    }
+
+    // Initial render
+    render();
+  </script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+let items = JSON.parse(localStorage.getItem("items")) || [];
+
+function save() {
+  localStorage.setItem("items", JSON.stringify(items));
+}
+
+// CREATE
+function addItem(name) {
+  if (!name.trim()) return "Invalid name";
+
+  const newItem = {
+    id: Date.now(),
+    name
+  };
+
+  items.push(newItem);
+  save();
+  return newItem;
+}
+
+// READ (all)
+function getItems() {
+  return items;
+}
+
+// READ (single)
+function getItemById(id) {
+  return items.find(item => item.id === id);
+}
+
+// UPDATE
+function updateItem(id, newName) {
+  let item = items.find(i => i.id === id);
+
+  if (!item) return "Item not found";
+
+  item.name = newName;
+  save();
+  return item;
+}
+
+// DELETE
+function deleteItem(id) {
+  const initialLength = items.length;
+
+  items = items.filter(i => i.id !== id);
+  save();
+
+  return items.length < initialLength
+    ? "Deleted"
+    : "Item not found";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useState, useEffect } from "react";
+
+export default function App() {
+  const [users, setUsers] = useState([]);
+  const [name, setName] = useState("");
+  const [editId, setEditId] = useState(null);
+
+  // Load from localStorage
+  useEffect(() => {
+    const data = JSON.parse(localStorage.getItem("users")) || [];
+    setUsers(data);
+  }, []);
+
+  // Save to localStorage
+  useEffect(() => {
+    localStorage.setItem("users", JSON.stringify(users));
+  }, [users]);
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+
+    if (editId !== null) {
+      // UPDATE
+      setUsers(
+        users.map(user =>
+          user.id === editId
+            ? { ...user, name }
+            : user
+        )
+      );
+      setEditId(null);
+    } else {
+      // CREATE
+      const newUser = {
+        id: Date.now(),
+        name
+      };
+      setUsers([...users, newUser]);
+    }
+
+    setName("");
+  };
+
+  const handleEdit = (user) => {
+    setName(user.name);
+    setEditId(user.id);
+  };
+
+  const handleDelete = (id) => {
+    setUsers(users.filter(user => user.id !== id));
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>User CRUD (LocalStorage)</h2>
+
+      {/* INPUT */}
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Enter name"
+      />
+
+      <button onClick={handleSubmit}>
+        {editId !== null ? "Update" : "Add"}
+      </button>
+
+      {/* LIST */}
+      <ul>
+        {users.map(user => (
+          <li key={user.id}>
+            {user.name}
+
+            <button onClick={() => handleEdit(user)}>
+              Edit
+            </button>
+
+            <button onClick={() => handleDelete(user.id)}>
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html>
+<body>
+
+  <h2>JS CRUD (React-like)</h2>
+
+  <input id="input" placeholder="Enter name" />
+  <button onclick="handleSubmit()">Add</button>
+
+  <ul id="list"></ul>
+
+  <script>
+    let items = [];
+    let editId = null;
+
+    function handleSubmit() {
+      const input = document.getElementById("input");
+      const value = input.value.trim();
+
+      if (!value) return;
+
+      if (editId !== null) {
+        // UPDATE
+        items = items.map(item =>
+          item.id === editId
+            ? { ...item, name: value }
+            : item
+        );
+        editId = null;
+      } else {
+        // CREATE
+        items.push({ id: Date.now(), name: value });
+      }
+
+      input.value = "";
+      render();
+    }
+
+    function handleEdit(id) {
+      const item = items.find(i => i.id === id);
+      document.getElementById("input").value = item.name;
+      editId = id;
+    }
+
+    function handleDelete(id) {
+      items = items.filter(i => i.id !== id);
+      render();
+    }
+
+    function render() {
+      const list = document.getElementById("list");
+
+      list.innerHTML = items.length === 0
+        ? "<p>No items</p>"
+        : items.map(item => `
+            <li>
+              ${item.name}
+              <button onclick="handleEdit(${item.id})">Edit</button>
+              <button onclick="handleDelete(${item.id})">Delete</button>
+            </li>
+          `).join("");
+    }
+  </script>
+
+</body>
+</html>
