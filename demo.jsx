@@ -193,3 +193,90 @@ export default function App() {
         </div>
     );
 }
+
+
+import React, { useState } from "react";
+
+export default function App() {
+    const [form, setForm] = useState({
+        name: "",
+        email: "",
+        password: ""
+    });
+
+    const [errors, setErrors] = useState({});
+
+    const handleChange = (e) => {
+        setForm({
+            ...form,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const validate = () => {
+        let newErrors = {};
+
+        if (!form.name.trim()) {
+            newErrors.name = "Name is required";
+        }
+
+        if (!form.email.includes("@")) {
+            newErrors.email = "Invalid email";
+        }
+
+        if (form.password.length < 6) {
+            newErrors.password = "Password must be at least 6 characters";
+        }
+
+        setErrors(newErrors);
+
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        if (validate()) {
+            console.log("Form submitted:", form);
+            alert("Success!");
+        }
+    };
+
+    return (
+        <div style={{ padding: "20px" }}>
+            <h2>React Form Validation</h2>
+
+            <form onSubmit={handleSubmit}>
+                <div>
+                    <input
+                        name="name"
+                        placeholder="Name"
+                        onChange={handleChange}
+                    />
+                    <p style={{ color: "red" }}>{errors.name}</p>
+                </div>
+
+                <div>
+                    <input
+                        name="email"
+                        placeholder="Email"
+                        onChange={handleChange}
+                    />
+                    <p style={{ color: "red" }}>{errors.email}</p>
+                </div>
+
+                <div>
+                    <input
+                        name="password"
+                        type="password"
+                        placeholder="Password"
+                        onChange={handleChange}
+                    />
+                    <p style={{ color: "red" }}>{errors.password}</p>
+                </div>
+
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+    );
+}
