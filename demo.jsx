@@ -76,7 +76,6 @@ export default function ThemeToggle() {
                 height: "100vh",
                 background: theme === "light" ? "#fff" : "#111",
                 color: theme === "light" ? "#000" : "#fff",
-
             }}
         >
             <h1>{theme.toUpperCase()} MODE</h1>
